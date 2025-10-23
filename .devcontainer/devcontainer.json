@@ -1,6 +1,11 @@
 {
   "image": "mcr.microsoft.com/devcontainers/universal:2",
   "features": {
-    "ghcr.io/devcontainers/features/rust:1": {}
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "complete",
+      "targets": "aarch64-unknown-linux-gnu",
+      "components": "rust-analyzer,rust-src,rustfmt,clippy"
+    }
   }
 }

@@ -1,0 +1,10 @@
+[package]
+name = "menu-maker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+calamine = "0.31.0"
+serde = { version = "1.0.228", features = ["derive"] }
+tera = "1.20.0"
+wkhtmltopdf = "0.4.0"
