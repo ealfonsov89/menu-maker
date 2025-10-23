@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use tera::Context;
 use tera::Tera;
-use calamine::{open_workbook, Error, Xlsx, Reader, RangeDeserializerBuilder};
+use calamine::{open_workbook, Xlsx, Reader, RangeDeserializerBuilder};
 
 #[derive(Serialize)]
 struct Item {
@@ -12,7 +12,7 @@ struct Item {
 }
 
 fn main() {
-    let path = format!("{}/tests/temperature.xlsx", env!("CARGO_MANIFEST_DIR"));
+    let path = format!("{}/dist/menu_test.xlsx", env!("CARGO_MANIFEST_DIR"));
     match Tera::new("template/*.html") {
         Ok(tera) => process(tera, path),
         Err(error) => {
@@ -40,9 +40,20 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
         Err(e) => {
             eprintln!("Error opening workbook: {}", e);
             ::std::process::exit(1);
-        }        
+        }
     };
-    let range = match workbook.worksheet_range("Sheet1") {
+    let sheet_names = workbook.sheet_names().to_owned();
+    let mut price_tables = Vec::new();
+    
+    for name in sheet_names {
+        let rendered_table = build_table(tera, &mut workbook, &name);
+        price_tables.push(rendered_table);
+    }
+    price_tables
+}
+
+fn build_table(tera: &Tera, workbook: &mut Xlsx<std::io::BufReader<fs::File>>, sheet_name: &str) -> String {
+    let range = match workbook.worksheet_range(sheet_name) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error reading range: {}", e);
@@ -59,46 +70,33 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
         }
     };
 
-    if let Some(result) = iter.next() {
-        let (label, value): (String, f64) = result?;
-        assert_eq!(label, "celsius");
-        assert_eq!(value, 22.2222);
-        Ok(())
-    } else {
-        Err(From::from("expected at least one record but got none"))
+    let mut items: Vec<Item> = Vec::new();
+    for result in iter.by_ref() {
+        let (label, value): (String, String) = match result {
+            Ok(result_ok) => result_ok,
+            Err(error) => {
+                eprintln!("Error reading range: {}", error);
+                ::std::process::exit(1);
+            }
+        };
+        items.push(Item {
+            name: label,
+            price: format!("{:.2}€", value.parse::<f64>().unwrap_or(0.0)),
+        });
     }
-
-
-
-    let table_context = get_table_from_sheet();
+    let table_context = get_table_from_sheet(sheet_name, &items);
 
     let rendered_table = render_product_table(tera, &table_context);
-
-    // Si quieres varias tablas, repite el proceso y push en price_tables
-    let price_tables = vec![rendered_table];
-    price_tables
+    rendered_table
 }
 
-fn get_table_from_sheet() -> Context {
-    let items = vec![
-        Item {
-            name: "Café".into(),
-            price: "2.50€".into(),
-        },
-        Item {
-            name: "Té".into(),
-            price: "2.00€".into(),
-        },
-        Item {
-            name: "Zumo".into(),
-            price: "3.00€".into(),
-        },
-    ];
+fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {
+
 
     
     // Contexto para la plantilla de la tabla
     let mut table_context = Context::new();
-    table_context.insert("type", "Bebidas");
+    table_context.insert("type", table_title);
     table_context.insert("items", &items);
     table_context
 }
