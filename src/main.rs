@@ -1,3 +1,5 @@
+use calamine::Data;
+use calamine::Range;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -43,26 +45,99 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
         }
     };
     let sheet_names = workbook.sheet_names().to_owned();
-    let mut price_tables = Vec::new();
+    let mut components = Vec::new();
+
+    let product_price_table = vec!["product","price"];
+
+    let offert_price_card = vec!["price", "description"];
     
     for name in sheet_names {
-        let rendered_table = build_table(tera, &mut workbook, &name);
-        price_tables.push(rendered_table);
+        let range = extract_data_from_sheet(&mut workbook, &name);
+
+        let headers = match range.headers() {
+            Some(h) => h,
+            None => {
+                eprintln!("No headers found in sheet: {}", name);
+                ::std::process::exit(1);
+            }
+        };
+        if headers[0].eq(product_price_table[0]) && headers[1].eq(product_price_table[1]) {
+            eprintln!("Building table for sheet: {}", name);
+            let rendered_table = build_table(tera, &range, &name);
+            components.push(rendered_table);       
+        } else if headers[0].eq(offert_price_card[0]) && headers[1].eq(offert_price_card[1]) {
+            eprintln!("Building offert card for sheet: {}", name);
+            let rendered_offert_card = build_offert_card(tera, &range, &name);
+            components.push(rendered_offert_card);
+        }
+
     }
-    price_tables
+    components
 }
 
-fn build_table(tera: &Tera, workbook: &mut Xlsx<std::io::BufReader<fs::File>>, sheet_name: &str) -> String {
-    let range = match workbook.worksheet_range(sheet_name) {
+
+
+fn extract_data_from_sheet(workbook: &mut Xlsx<std::io::BufReader<fs::File>>, name: &String) -> Range<Data> {
+    let range = match workbook.worksheet_range(name) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error reading range: {}", e);
             ::std::process::exit(1);
         }
     };
+    range
+}
+fn build_offert_card(tera: &Tera, data: &Range<Data>, sheet_name: &str) -> String {
+
+    let first_data_row = data
+        .rows()
+        .skip(1) // saltar la fila de cabecera
+        .find(|row| row.iter().any(|cell| !cell.to_string().trim().is_empty()));
+
+    let (price, description) = match first_data_row {
+        Some(row) => {
+            let price_raw = row.get(0).map(|c| c.to_string()).unwrap_or_default();
+            let description = row.get(1).map(|c| c.to_string()).unwrap_or_default();
+
+            // formatear precio si es numérico
+            let price = match price_raw.parse::<f64>() {
+                Ok(v) => format!("{:.2}€", v),
+                Err(_) => price_raw,
+            };
+            (price, description)
+        }
+        None => {
+            eprintln!("No data row found in sheet: {}", sheet_name);
+            ("".to_string(), "".to_string())
+        }
+    };
+    
+    let mut context = Context::new();
+        context.insert("name", sheet_name);
+        context.insert("price", &price);
+        context.insert("description", &description);
+
+    let rendered_offert_card = render_offert_card(tera, &context);
+    rendered_offert_card
+}
 
 
-    let mut iter = match RangeDeserializerBuilder::new().from_range(&range){
+
+fn render_offert_card(tera: &Tera, context: &Context) -> String {
+
+    // Renderizar la plantilla de tabla a string
+    let rendered_offert_card = match tera.render("offert_card_template.html", &context) {
+        Ok(s) => s,
+        Err(error) => {
+            eprintln!("Error renderizando price_table_template: {}", error);
+            ::std::process::exit(1);
+        }
+    };
+    rendered_offert_card
+}
+fn build_table(tera: &Tera, data: &Range<Data> , sheet_name: &str) -> String {
+
+    let mut iter = match RangeDeserializerBuilder::new().from_range(&data){
         Ok(it) => it,
         Err(e) => {
             eprintln!("Error creating deserializer: {}", e);
@@ -90,10 +165,7 @@ fn build_table(tera: &Tera, workbook: &mut Xlsx<std::io::BufReader<fs::File>>, s
     rendered_table
 }
 
-fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {
-
-
-    
+fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {    
     // Contexto para la plantilla de la tabla
     let mut table_context = Context::new();
     table_context.insert("type", table_title);

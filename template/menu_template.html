@@ -1,7 +1,158 @@
-<html>
-    <body style="background-color: orange; column-count: 5;">
-        {% for price_table in price_tables %}
-            {{ price_table | safe }}
-        {% endfor %}
-    </body>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- Fuentes: Playfair para logo, Roboto Slab para subtítulos, Montserrat para cuerpo/precios -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto+Slab:wght@400;700&family=Montserrat:wght@300;400;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --accent: #c62828; /* rojo pizza */
+    --bg: #ffb74d;     /* naranja suave */
+    --text: #111;
+  }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Montserrat", system-ui, sans-serif;
+  }
+
+  /* Layout columnas */
+  body{
+    column-count: 2;
+    column-gap: 2rem;
+    padding: 1.5rem;
+  }
+
+  /* Cabecera (logo y dirección) */
+  .header {
+    display:block;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 1rem;
+    width: 100%;
+  }
+  .brand {
+    font-family: "Playfair Display", serif;
+    font-weight: 700;
+    font-size: 3rem;           /* H1 grande */
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #111;
+    margin: 0;
+  }
+  .subtitle {
+    font-family: "Roboto Slab", serif;
+    font-weight: 700;
+    font-size: 1.6rem;         /* H2 */
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0.1rem 0 0;
+    letter-spacing: 0.06em;
+  }
+  .address {
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.95rem;        /* H3-ish */
+    text-transform: uppercase;
+    margin: 0.4rem 0 0;
+    color: #222;
+    letter-spacing: 0.06em;
+  }
+
+  /* Cada tabla (evita fragmentación entre columnas) */
+  .price-table {
+    display: block;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    -moz-column-break-inside: avoid;
+    width: 100%;
+    margin: 0 0 1.25rem;
+  }
+  .offert-card {
+    display: inline-block;               /* shrink-to-fit */
+    vertical-align: top;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    -moz-column-break-inside: avoid;
+    margin: 0 0 1.25rem;
+    padding: 0.75rem 1rem;
+    background: #111;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    width: auto;
+    max-width: 100%;
+  }
+  .offert-card h1 {
+    color: white;
+  }
+  /* Estructura de tabla */
+  table {
+    width:100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    background: transparent;
+    font-family: "Montserrat", sans-serif;
+  }
+  thead th {
+    text-align: left;
+    font-family: "Roboto Slab", serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1.05rem;
+    color: #fff;
+    background: #111;
+    padding: 0.6rem 0.9rem;
+    border-radius: 30px;
+  }
+  tbody td {
+    padding: 0.45rem 0.6rem;
+    vertical-align: middle;
+    color: #111;
+    font-size: 0.95rem;
+    line-height: 1.2;
+  }
+  td.price {
+    text-align: right;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* Encabezados H1/H2/H3 dentro de plantillas (por si se usan) */
+  h1, h2, h3 {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  h1 { font-family: "Playfair Display", serif; font-size: 3rem; }
+  h2 { font-family: "Roboto Slab", serif;  font-size: 1.8rem; color: var(--accent); }
+  h3 { font-family: "Montserrat", sans-serif; font-size: 1.1rem; }
+
+  /* Pequeños ajustes responsivos */
+  @media (max-width:800px){
+    body{ column-count: 1; }
+    .brand { font-size: 2.2rem; }
+    .subtitle { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body>
+  <!-- Cabecera: ajusta según tu contenido real -->
+  <div class="header">
+    <h1 class="brand">Tropical</h1>
+    <h2 class="subtitle">Pizza</h2>
+    <div class="address">
+      Estocolmo, 6 · Bajo 7, Móstoles · 91 645 26 39
+    </div>
+  </div>
+
+  {% for price_table in price_tables %}
+    <div class="price-table">
+      {{ price_table | safe }}
+    </div>
+  {% endfor %}
+</body>
 </html>
