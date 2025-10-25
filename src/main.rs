@@ -1,3 +1,10 @@
+#[macro_use] extern crate log;
+extern crate simplelog;
+use simplelog::*;
+
+use std::fs::File;
+
+
 use calamine::Data;
 use calamine::Range;
 use serde::Serialize;
@@ -5,6 +12,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::env::current_dir;
 use tera::Context;
 use tera::Tera;
 use calamine::{open_workbook, Xlsx, Reader, RangeDeserializerBuilder};
@@ -17,30 +25,71 @@ struct Item {
 }
 
 fn main() {
+    prepare_log();
 
-    let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Arrastra un archivo sobre este ejecutable o pásalo como argumento.");
-        return;
-    }
+    let exe_dir = env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
 
-    let file_path = &args[1];
-    let path = Path::new(file_path);
+    // Cambiar directorio de trabajo
+    env::set_current_dir(&exe_dir).unwrap();
+    info!("Directorio actual: {}", current_dir().unwrap().display());
+    let template_path = format!("{}/template/*.html", exe_dir.display()).trim().replace('\\', "/");
+    info!("Usando plantillas en: {}", template_path);
 
-    if path.exists() {
-        println!("Archivo recibido: {}", path.display());
-    } else {
-        eprintln!("El archivo no existe: {}", path.display());
-    }
+    
 
-    match Tera::new("template/*.html") {
+    let file_path = match handle_arguments() {
+        Some(value) => value,
+        None => return,
+    };
+    match Tera::new(template_path.as_str()) {
         Ok(tera) => process(tera, file_path.to_string()),
-        Err(error) => {
-            println!("Parsing error(s): {}", error);
+        Err(e) => {
+            error!("Error parsing templates: {}", e);
             ::std::process::exit(1);
         }
     };
+}
+
+fn prepare_log() {
+    CombinedLogger::init(vec![
+        TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+        WriteLogger::new(LevelFilter::Info, Config::default(), File::create("output.log").unwrap()),
+    ]).unwrap();
+}
+
+fn handle_arguments() -> Option<String> {
+    let args: Vec<String> = env::args().collect();
+    let mut file_path = String::new();
+    if args.len() < 2 {
+        println!("Agrega la ruta al xlsx:");
+        match std::io::stdin().read_line(&mut file_path) {
+            Ok(_) => {
+                info!("Archivo recibido desde stdin: {}", file_path.trim());
+            },
+            Err(e) => {
+                error!("Error leyendo entrada estándar: {}", e);
+                ::std::process::exit(1);  
+            }
+        }
+    } else {
+        file_path = args[1].to_string();
+    }
+
+    let fixed_path = file_path.trim().replace('\\', "/");
+
+    let path = Path::new(&fixed_path);
+    if path.exists() {
+        info!("Archivo recibido: {}", path.display());
+    } else {
+        error!("El archivo no existe: {}", path.display());
+        ::std::process::exit(1);  
+    }
+    Some(fixed_path.to_string())
 }
 
 fn process(tera: Tera, path: String) -> Tera {
@@ -59,7 +108,7 @@ fn process(tera: Tera, path: String) -> Tera {
 fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
     let output_dir = Path::new("dist");
     if let Err(e) = std::fs::create_dir_all(output_dir) {
-        eprintln!("Error creando dist: {}", e);
+        error!("Error creando dist: {}", e);
         ::std::process::exit(1);        
     }
 
@@ -72,7 +121,7 @@ fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
         .find(|b| which::which(b).is_ok())
         .map(|s| s.to_string())
         .unwrap_or_else(|| {
-            eprintln!("No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium.");
+            error!("No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium.");
             String::new()
         });
 
@@ -96,17 +145,18 @@ fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
         .status();
 
     match status {
-        Ok(s) if s.success() => println!("PDF generado: {}", pdf_path.display()),
-        Ok(s) => eprintln!("Chrome finalizó con código: {}", s),
-        Err(e) => eprintln!("No se pudo ejecutar Chrome: {}", e),
+        Ok(s) if s.success() => info!("PDF generado: {}", pdf_path.display()),
+        Ok(s) => info!("Chrome finalizó con código: {}", s),
+        Err(e) => error!("No se pudo ejecutar Chrome: {}", e),
     }
 }
 
 fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
+    info!("Abriendo workbook: {}", path);
     let mut workbook: Xlsx<_> = match open_workbook(path) {
         Ok(wb) => wb,
         Err(e) => {
-            eprintln!("Error opening workbook: {}", e);
+            error!("Error opening workbook: {}", e);
             ::std::process::exit(1);
         }
     };
@@ -123,16 +173,16 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
         let headers = match range.headers() {
             Some(h) => h,
             None => {
-                eprintln!("No headers found in sheet: {}", name);
+                error!("No headers found in sheet: {}", name);
                 ::std::process::exit(1);
             }
         };
         if headers[0].eq(product_price_table[0]) && headers[1].eq(product_price_table[1]) {
-            eprintln!("Building table for sheet: {}", name);
+            info!("Building table for sheet: {}", name);
             let rendered_table = build_table(tera, &range, &name);
             components.push(rendered_table);       
         } else if headers[0].eq(offert_price_card[0]) && headers[1].eq(offert_price_card[1]) {
-            eprintln!("Building offert card for sheet: {}", name);
+            info!("Building offert card for sheet: {}", name);
             let rendered_offert_card = build_offert_card(tera, &range, &name);
             components.push(rendered_offert_card);
         }
@@ -147,7 +197,7 @@ fn extract_data_from_sheet(workbook: &mut Xlsx<std::io::BufReader<fs::File>>, na
     let range = match workbook.worksheet_range(name) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Error reading range: {}", e);
+            error!("Error reading range: {}", e);
             ::std::process::exit(1);
         }
     };
@@ -173,7 +223,7 @@ fn build_offert_card(tera: &Tera, data: &Range<Data>, sheet_name: &str) -> Strin
             (price, description)
         }
         None => {
-            eprintln!("No data row found in sheet: {}", sheet_name);
+            warn!("No data row found in sheet: {}", sheet_name);
             ("".to_string(), "".to_string())
         }
     };
@@ -195,7 +245,7 @@ fn render_offert_card(tera: &Tera, context: &Context) -> String {
     let rendered_offert_card = match tera.render("offert_card_template.html", &context) {
         Ok(s) => s,
         Err(error) => {
-            eprintln!("Error renderizando price_table_template: {}", error);
+            error!("Error renderizando price_table_template: {}", error);
             ::std::process::exit(1);
         }
     };
@@ -206,7 +256,7 @@ fn build_table(tera: &Tera, data: &Range<Data> , sheet_name: &str) -> String {
     let mut iter = match RangeDeserializerBuilder::new().from_range(&data){
         Ok(it) => it,
         Err(e) => {
-            eprintln!("Error creating deserializer: {}", e);
+            error!("Error creating deserializer: {}", e);
             ::std::process::exit(1);
         }
     };
@@ -216,7 +266,7 @@ fn build_table(tera: &Tera, data: &Range<Data> , sheet_name: &str) -> String {
         let (label, value): (String, String) = match result {
             Ok(result_ok) => result_ok,
             Err(error) => {
-                eprintln!("Error reading range: {}", error);
+                error!("Error reading range: {}", error);
                 ::std::process::exit(1);
             }
         };
@@ -243,7 +293,7 @@ fn save_rendered_html(rendered_menu: &String) -> std::path::PathBuf {
     let output_dir = Path::new("dist");
     if !output_dir.exists() {
         if let Err(error) = fs::create_dir_all(output_dir) {
-            eprintln!("Error creando directorio de salida: {}", error);
+            error!("Error creando directorio de salida: {}", error);
             ::std::process::exit(1);
         }
     }
@@ -251,9 +301,9 @@ fn save_rendered_html(rendered_menu: &String) -> std::path::PathBuf {
     // Escribir resultado en un archivo (o imprime por stdout si prefieres)
     let output_path = output_dir.join("menu_output.html");
     if let Err(error) = fs::write(&output_path, rendered_menu) {
-        eprintln!("Error escribiendo output: {}", error);
+        error!("Error escribiendo output: {}", error);
     } else {
-        println!("menu_output.html generado en dist/menu_output.html");
+        info!("menu_output.html generado en dist/menu_output.html");
     }
     output_path
 }
@@ -267,7 +317,7 @@ fn render_menu(tera: &Tera, price_tables: Vec<String>) -> String {
     let rendered_menu = match tera.render("menu_template.html", &menu_context) {
         Ok(rendered_html) => rendered_html,
         Err(error) => {
-            eprintln!("Error renderizando menu_template: {}", error);
+            error!("Error renderizando menu_template: {}", error);
             ::std::process::exit(1);
         }
     };
@@ -281,7 +331,7 @@ fn render_product_table(tera: &Tera, table_context: &Context) -> String {
     let rendered_table = match tera.render("price_table_template.html", &table_context) {
         Ok(s) => s,
         Err(error) => {
-            eprintln!("Error renderizando price_table_template: {}", error);
+            error!("Error renderizando price_table_template: {}", error);
             ::std::process::exit(1);
         }
     };
