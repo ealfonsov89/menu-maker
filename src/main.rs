@@ -43,34 +43,45 @@ fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
     let output_dir = Path::new("dist");
     if let Err(e) = std::fs::create_dir_all(output_dir) {
         eprintln!("Error creando dist: {}", e);
-        return;
+        ::std::process::exit(1);        
     }
 
     let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
-     let pdf_path = output_dir.join(format!("menu-{}.pdf", timestamp));
+    let pdf_path = output_dir.join(format!("menu-{}.pdf", timestamp));
 
-    let status = Command::new("wkhtmltopdf")
-        .arg("--margin-top").arg("0mm")
-        .arg("--margin-bottom").arg("0mm")
-        .arg("--margin-left").arg("0mm")
-        .arg("--margin-right").arg("0mm")
-        .arg("--enable-local-file-access")
-        .arg("--images")
-        .arg("--background")
-        .arg("--print-media-type")
-        .arg("--disable-smart-shrinking")
-        .arg("--orientation").arg("Landscape")
-        .arg(tmp_html.to_str().unwrap())
-        .arg(pdf_path.to_str().unwrap())
+    // Preferir google-chrome, fallback a chromium/ chromium-browser
+    let chrome_candidates = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"];
+    let chrome_bin = chrome_candidates.iter()
+        .find(|b| which::which(b).is_ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            eprintln!("No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium.");
+            String::new()
+        });
+
+    if chrome_bin.is_empty() {
+        ::std::process::exit(1);  
+    }
+
+    let html_source_file = format!("./{}", tmp_html.display());
+    let status = Command::new(&chrome_bin)
+        .arg("--headless")
+        .arg("--no-sandbox")                 // necesario en muchos contenedores
+        .arg("--disable-gpu")
+        .arg("--disable-dev-shm-usage")      
+        .arg("--enable-local-file-access") 
+        .arg("--force-device-scale-factor=1")
+        .arg("--disable-translate")
+        .arg("--print-backgrounds")
+        .arg(format!("--print-to-pdf={}", pdf_path.display()))
+        .arg(html_source_file)
+        .stderr(std::process::Stdio::inherit())
         .status();
 
     match status {
-        Ok(s) if s.success() => {
-            println!("PDF generado: {}", pdf_path.display());
-            println!("HTML retenido en: {}", tmp_html.display());
-        }
-        Ok(s) => eprintln!("wkhtmltopdf finalizó con código: {}", s),
-        Err(e) => eprintln!("No se pudo ejecutar wkhtmltopdf: {}. ¿Está instalado y en PATH?", e),
+        Ok(s) if s.success() => println!("PDF generado: {}", pdf_path.display()),
+        Ok(s) => eprintln!("Chrome finalizó con código: {}", s),
+        Err(e) => eprintln!("No se pudo ejecutar Chrome: {}", e),
     }
 }
 

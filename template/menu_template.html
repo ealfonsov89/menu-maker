@@ -9,7 +9,16 @@
     --accent: #c62828;
     --bg: #ffb74d;
     --text: #111;
+
+    /* Página A4 landscape: ancho total 297mm. Ajusta si cambias padding/gap */
+    --page-width: 297mm;
+    --page-padding: 8mm;   /* padding lateral aplicado a .page */
+    --column-gap: 10mm;    /* gap entre columnas */
+    /* ancho disponible para columnas = page - 2*padding - 2*gaps (3 cols => 2 gaps) */
+    --col-width: calc( (var(--page-width) - (var(--page-padding) * 2) - (var(--column-gap) * 2)) / 3 );
   }
+  html { font-size: 12px; }   
+  @page { size: A4 landscape; margin: 0; }
 
   /* Forzar que los colores de fondo se impriman */
   html, body, .page, .offert-card, table, thead th, tbody td {
@@ -20,26 +29,30 @@
   html,body {
     margin:0;
     padding:0;
-    height:100%;
+    width: 297mm;
+    height: 210mm;
     color: var(--text);
     font-family: "Montserrat", system-ui, sans-serif;
   }
 
   /* Poner el fondo en un wrapper .page para que wkhtmltopdf lo pinte */
   .page {
-    background: var(--bg);
-    min-height: 100vh;
+    width: 297mm;           /* A4 landscape width */
+    max-width: 297mm;
     box-sizing: border-box;
-    padding: 1.5rem;
+    padding: 8mm;           /* espacio interior; recuerda que @page margin:0 */
+    background: var(--bg);
   }
 
   /* Layout columnas: aplicar a un contenedor dentro de .page */
   .columns {
-    column-count: 2;
-    column-gap: 2rem;
-    column-fill: balance;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
   }
-
+  .price-table {
+    width: calc(25% - 2rem);
+  }
   /* Cabecera */
   .header{ display:block; break-inside:avoid; margin-bottom:1rem; width:100% }
   .brand{ font-family:"Playfair Display",serif; font-weight:700; font-size:3rem; text-transform:uppercase; letter-spacing:.08em; margin:0 }
@@ -50,6 +63,9 @@
   .price-table{ display:inline-block; vertical-align:top; break-inside:avoid; -webkit-column-break-inside:avoid; -moz-column-break-inside:avoid; margin:0 0 1.25rem; width:auto; max-width:100% }
   .offert-card{ display:inline-block; vertical-align:top; break-inside:avoid; padding:.75rem 1rem; background:#111; border-radius:15px; color:#fff; box-shadow:0 4px 6px rgba(0,0,0,.1); width:auto; max-width:100% }
 
+  .offert-card h1 { 
+    font-size: 1.5rem;
+  }
   /* Flex: añadir prefijos y fallback */
   .flex-row { 
     display: -webkit-box; 
@@ -83,6 +99,20 @@
     .columns{ column-count:1 }
     .brand{ font-size:2.2rem }
     .subtitle{ font-size:1.3rem }
+  }
+</style>
+<style media="print">
+  body, html, .page {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  * {
+    box-shadow: none !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 0;
   }
 </style>
 </head>
