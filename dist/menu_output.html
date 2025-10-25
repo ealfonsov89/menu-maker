@@ -2,156 +2,102 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<!-- Fuentes: Playfair para logo, Roboto Slab para subtítulos, Montserrat para cuerpo/precios -->
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto+Slab:wght@400;700&family=Montserrat:wght@300;400;700&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root{
-    --accent: #c62828; /* rojo pizza */
-    --bg: #ffb74d;     /* naranja suave */
+    --accent: #c62828;
+    --bg: #ffb74d;
     --text: #111;
   }
 
-  html,body{
+  /* Forzar que los colores de fondo se impriman */
+  html, body, .page, .offert-card, table, thead th, tbody td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html,body {
     margin:0;
     padding:0;
-    background: var(--bg);
+    height:100%;
     color: var(--text);
     font-family: "Montserrat", system-ui, sans-serif;
   }
 
-  /* Layout columnas */
-  body{
-    column-count: 2;
-    column-gap: 2rem;
+  /* Poner el fondo en un wrapper .page para que wkhtmltopdf lo pinte */
+  .page {
+    background: var(--bg);
+    min-height: 100vh;
+    box-sizing: border-box;
     padding: 1.5rem;
   }
 
-  /* Cabecera (logo y dirección) */
-  .header {
-    display:block;
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    margin-bottom: 1rem;
-    width: 100%;
-  }
-  .brand {
-    font-family: "Playfair Display", serif;
-    font-weight: 700;
-    font-size: 3rem;           /* H1 grande */
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #111;
-    margin: 0;
-  }
-  .subtitle {
-    font-family: "Roboto Slab", serif;
-    font-weight: 700;
-    font-size: 1.6rem;         /* H2 */
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0.1rem 0 0;
-    letter-spacing: 0.06em;
-  }
-  .address {
-    font-family: "Montserrat", sans-serif;
-    font-size: 0.95rem;        /* H3-ish */
-    text-transform: uppercase;
-    margin: 0.4rem 0 0;
-    color: #222;
-    letter-spacing: 0.06em;
+  /* Layout columnas: aplicar a un contenedor dentro de .page */
+  .columns {
+    column-count: 2;
+    column-gap: 2rem;
+    column-fill: balance;
   }
 
-  /* Cada tabla (evita fragmentación entre columnas) */
-  .price-table {
-    display: block;
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    -moz-column-break-inside: avoid;
-    width: 100%;
-    margin: 0 0 1.25rem;
+  /* Cabecera */
+  .header{ display:block; break-inside:avoid; margin-bottom:1rem; width:100% }
+  .brand{ font-family:"Playfair Display",serif; font-weight:700; font-size:3rem; text-transform:uppercase; letter-spacing:.08em; margin:0 }
+  .subtitle{ font-family:"Roboto Slab",serif; font-weight:700; font-size:1.6rem; text-transform:uppercase; color:var(--accent); margin:.1rem 0 0 }
+  .address{ font-size:.95rem; text-transform:uppercase; margin:.4rem 0 0; color:#222; letter-spacing:.06em }
+
+  /* Evitar fragmentación y shrink-to-fit */
+  .price-table{ display:inline-block; vertical-align:top; break-inside:avoid; -webkit-column-break-inside:avoid; -moz-column-break-inside:avoid; margin:0 0 1.25rem; width:auto; max-width:100% }
+  .offert-card{ display:inline-block; vertical-align:top; break-inside:avoid; padding:.75rem 1rem; background:#111; border-radius:15px; color:#fff; box-shadow:0 4px 6px rgba(0,0,0,.1); width:auto; max-width:100% }
+
+  /* Flex: añadir prefijos y fallback */
+  .flex-row { 
+    display: -webkit-box; 
+    display: -webkit-flex; 
+    display: flex; 
+    -webkit-box-orient: horizontal; 
+    -webkit-box-direction: normal; 
+    -webkit-flex-direction: row; 
+    flex-direction: row;
+    gap: .5rem;
   }
-  .offert-card {
-    display: inline-block;               /* shrink-to-fit */
-    vertical-align: top;
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    -moz-column-break-inside: avoid;
-    margin: 0 0 1.25rem;
-    padding: 0.75rem 1rem;
-    background: #111;
-    border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    width: auto;
-    max-width: 100%;
-  }
-  .offert-card h1 {
-    color: white;
-  }
-  /* Estructura de tabla */
-  table {
-    width:100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    background: transparent;
-    font-family: "Montserrat", sans-serif;
-  }
-  thead th {
-    text-align: left;
-    font-family: "Roboto Slab", serif;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 1.05rem;
-    color: #fff;
-    background: #111;
-    padding: 0.6rem 0.9rem;
-    border-radius: 30px;
-  }
-  tbody td {
-    padding: 0.45rem 0.6rem;
-    vertical-align: middle;
-    color: #111;
-    font-size: 0.95rem;
-    line-height: 1.2;
-  }
-  td.price {
-    text-align: right;
-    color: var(--accent);
-    font-weight: 700;
-    white-space: nowrap;
+  .flex-item {
+    -webkit-box-flex: 0;
+    -webkit-flex: 0 0 auto;
+    flex: 0 0 auto;
   }
 
-  /* Encabezados H1/H2/H3 dentro de plantillas (por si se usan) */
-  h1, h2, h3 {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  h1 { font-family: "Playfair Display", serif; font-size: 3rem; }
-  h2 { font-family: "Roboto Slab", serif;  font-size: 1.8rem; color: var(--accent); }
-  h3 { font-family: "Montserrat", sans-serif; font-size: 1.1rem; }
+  /* Tablas: dejar que ajusten su ancho al contenido */
+  table{ display:inline-table; width:auto; max-width:100%; border-collapse:collapse; table-layout:auto; background:transparent; font-family:"Montserrat",sans-serif }
+  thead th{ text-align:left; font-family:"Roboto Slab",serif; font-weight:700; text-transform:uppercase; font-size:1.05rem; color:#fff; background:#111; padding:.6rem .9rem; border-radius:30px; white-space:nowrap }
+  tbody td{ padding:.45rem .6rem; vertical-align:middle; color:var(--text); font-size:.95rem; line-height:1.2; text-transform:uppercase }
+  td.price{ text-align:right; color:var(--accent); font-weight:700; white-space:nowrap }
 
-  /* Pequeños ajustes responsivos */
+  /* Encabezados */
+  h1,h2,h3{ margin:0; text-transform:uppercase; letter-spacing:.06em }
+  h1{ font-family:"Playfair Display",serif; font-size:3rem }
+  h2{ font-family:"Roboto Slab",serif; font-size:1.8rem; color:var(--accent) }
+  h3{ font-family:"Montserrat",sans-serif; font-size:1.1rem }
+
   @media (max-width:800px){
-    body{ column-count: 1; }
-    .brand { font-size: 2.2rem; }
-    .subtitle { font-size: 1.3rem; }
+    .columns{ column-count:1 }
+    .brand{ font-size:2.2rem }
+    .subtitle{ font-size:1.3rem }
   }
 </style>
 </head>
 <body>
-  <!-- Cabecera: ajusta según tu contenido real -->
-  <div class="header">
-    <h1 class="brand">Tropical</h1>
-    <h2 class="subtitle">Pizza</h2>
-    <div class="address">
-      Estocolmo, 6 · Bajo 7, Móstoles · 91 645 26 39
-    </div>
-  </div>
+  <div class="page">
+    <div class="columns">
+      <div class="header">
+        <h1 class="brand">Tropical</h1>
+        <h2 class="subtitle">Pizza</h2>
+        <div class="address">Estocolmo, 6 · Bajo 7, Móstoles · 91 645 26 39</div>
+      </div>
 
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -226,10 +172,10 @@
         
     </tbody>
 </table>
-    </div>
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+        </div>
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -292,20 +238,20 @@
         
     </tbody>
 </table>
-    </div>
-  
-    <div class="price-table">
-      <div class="offert-card">
+        </div>
+      
+        <div class="price-table">
+          <div class="offert-card">
     <div>
         <H1>Chupitos</H1>
         <h2>2.50€</h2>
     </div>
     <h3></h3>
 </div>
-    </div>
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+        </div>
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -350,10 +296,10 @@
         
     </tbody>
 </table>
-    </div>
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+        </div>
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -392,30 +338,30 @@
         
     </tbody>
 </table>
-    </div>
-  
-    <div class="price-table">
-      <div class="offert-card">
+        </div>
+      
+        <div class="price-table">
+          <div class="offert-card">
     <div>
         <H1>Mojito Cubano</H1>
         <h2>5.50€</h2>
     </div>
     <h3></h3>
 </div>
-    </div>
-  
-    <div class="price-table">
-      <div class="offert-card">
+        </div>
+      
+        <div class="price-table">
+          <div class="offert-card">
     <div>
         <H1>Daiquiry</H1>
         <h2>4.50€</h2>
     </div>
     <h3></h3>
 </div>
-    </div>
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+        </div>
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -478,10 +424,10 @@
         
     </tbody>
 </table>
-    </div>
-  
-    <div class="price-table">
-      <table style="display: block; break-inside: avoid;">
+        </div>
+      
+        <div class="price-table">
+          <table style="display: block; break-inside: avoid;">
     <thead>
         <th colspan="2" style="
             background-color: black;
@@ -538,7 +484,9 @@
         
     </tbody>
 </table>
+        </div>
+      
     </div>
-  
+  </div>
 </body>
 </html>

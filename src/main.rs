@@ -3,9 +3,11 @@ use calamine::Range;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 use tera::Context;
 use tera::Tera;
 use calamine::{open_workbook, Xlsx, Reader, RangeDeserializerBuilder};
+use chrono::Local;
 
 #[derive(Serialize)]
 struct Item {
@@ -31,9 +33,45 @@ fn process(tera: Tera, path: String) -> Tera {
 
     let rendered_menu = render_menu(&tera, price_tables);
 
-
-    save_rendered_html(rendered_menu);
+    
+    let html_output_path = save_rendered_html(&rendered_menu);
+    save_rendered_pdf(&html_output_path);
     tera
+}
+
+fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
+    let output_dir = Path::new("dist");
+    if let Err(e) = std::fs::create_dir_all(output_dir) {
+        eprintln!("Error creando dist: {}", e);
+        return;
+    }
+
+    let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
+     let pdf_path = output_dir.join(format!("menu-{}.pdf", timestamp));
+
+    let status = Command::new("wkhtmltopdf")
+        .arg("--margin-top").arg("0mm")
+        .arg("--margin-bottom").arg("0mm")
+        .arg("--margin-left").arg("0mm")
+        .arg("--margin-right").arg("0mm")
+        .arg("--enable-local-file-access")
+        .arg("--images")
+        .arg("--background")
+        .arg("--print-media-type")
+        .arg("--disable-smart-shrinking")
+        .arg("--orientation").arg("Landscape")
+        .arg(tmp_html.to_str().unwrap())
+        .arg(pdf_path.to_str().unwrap())
+        .status();
+
+    match status {
+        Ok(s) if s.success() => {
+            println!("PDF generado: {}", pdf_path.display());
+            println!("HTML retenido en: {}", tmp_html.display());
+        }
+        Ok(s) => eprintln!("wkhtmltopdf finalizó con código: {}", s),
+        Err(e) => eprintln!("No se pudo ejecutar wkhtmltopdf: {}. ¿Está instalado y en PATH?", e),
+    }
 }
 
 fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
@@ -173,7 +211,7 @@ fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {
     table_context
 }
 
-fn save_rendered_html(rendered_menu: String) {
+fn save_rendered_html(rendered_menu: &String) -> std::path::PathBuf {
     let output_dir = Path::new("dist");
     if !output_dir.exists() {
         if let Err(error) = fs::create_dir_all(output_dir) {
@@ -183,11 +221,13 @@ fn save_rendered_html(rendered_menu: String) {
     }
     
     // Escribir resultado en un archivo (o imprime por stdout si prefieres)
-    if let Err(error) = fs::write(output_dir.join("menu_output.html"), rendered_menu) {
+    let output_path = output_dir.join("menu_output.html");
+    if let Err(error) = fs::write(&output_path, rendered_menu) {
         eprintln!("Error escribiendo output: {}", error);
     } else {
         println!("menu_output.html generado en dist/menu_output.html");
     }
+    output_path
 }
 
 fn render_menu(tera: &Tera, price_tables: Vec<String>) -> String {
