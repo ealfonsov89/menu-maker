@@ -1,0 +1,55 @@
+name: Rust Windows Release
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # También puedes añadir un flujo de trabajo manual para lanzar la compilación
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_windows_release:
+
+    # 1. Usar la plataforma Windows
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      
+    # 2. Instalar Rust con el objetivo MSVC para una compilación robusta en Windows
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        override: true
+
+    - name: Build (Release)
+      # 3. Compilar en modo release para producción
+      run: cargo build --release --verbose
+
+    - name: Copy Assets to Release Folder
+      # 4. Copiar la carpeta 'assets' a la carpeta 'target/release'.
+      #    Usamos PowerShell (shell: powershell) para comandos de Windows.
+      run: |
+        $releaseDir = "target\release"
+        if (-Not (Test-Path $releaseDir)) {
+          Write-Error "Release directory not found: $releaseDir"
+          exit 1
+        }
+        # Copia recursiva de la carpeta 'assets' (y su contenido) a 'target/release/'
+        Copy-Item -Path assets -Destination $releaseDir -Recurse -Force
+      shell: powershell
+      
+    - name: Upload Release Artifact (Windows)
+      # 5. Publicar la carpeta 'target/release' como artefacto
+      uses: actions/upload-artifact@v4
+      with:
+        name: rust-app-windows-release
+        path: target/release/
+        # Usamos la sintaxis de rutas de Windows aquí.
+        
