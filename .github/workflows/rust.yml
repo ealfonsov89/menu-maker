@@ -42,7 +42,7 @@ jobs:
           exit 1
         }
         # Copia recursiva de la carpeta 'assets' (y su contenido) a 'target/release/'
-        Copy-Item -Path assets -Destination $releaseDir -Recurse -Force
+        Copy-Item -Path template -Destination $releaseDir -Recurse -Force
       shell: powershell
       
     - name: Upload Release Artifact (Windows)
