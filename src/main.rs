@@ -1,6 +1,7 @@
 use calamine::Data;
 use calamine::Range;
 use serde::Serialize;
+use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -16,9 +17,25 @@ struct Item {
 }
 
 fn main() {
-    let path = format!("{}/dist/menu_test.xlsx", env!("CARGO_MANIFEST_DIR"));
+
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Arrastra un archivo sobre este ejecutable o pásalo como argumento.");
+        return;
+    }
+
+    let file_path = &args[1];
+    let path = Path::new(file_path);
+
+    if path.exists() {
+        println!("Archivo recibido: {}", path.display());
+    } else {
+        eprintln!("El archivo no existe: {}", path.display());
+    }
+
     match Tera::new("template/*.html") {
-        Ok(tera) => process(tera, path),
+        Ok(tera) => process(tera, file_path.to_string()),
         Err(error) => {
             println!("Parsing error(s): {}", error);
             ::std::process::exit(1);
