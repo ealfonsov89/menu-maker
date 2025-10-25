@@ -1,22 +1,22 @@
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate simplelog;
 use simplelog::*;
 
 use std::fs::File;
 
-
 use calamine::Data;
 use calamine::Range;
+use calamine::{RangeDeserializerBuilder, Reader, Xlsx, open_workbook};
+use chrono::Local;
 use serde::Serialize;
 use std::env;
+use std::env::current_dir;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::env::current_dir;
 use tera::Context;
 use tera::Tera;
-use calamine::{open_workbook, Xlsx, Reader, RangeDeserializerBuilder};
-use chrono::Local;
 
 #[derive(Serialize)]
 struct Item {
@@ -27,20 +27,15 @@ struct Item {
 fn main() {
     prepare_log();
 
-
-    let exe_dir = env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf();
+    let exe_dir = env::current_exe().unwrap().parent().unwrap().to_path_buf();
 
     // Cambiar directorio de trabajo
     env::set_current_dir(&exe_dir).unwrap();
     info!("Directorio actual: {}", current_dir().unwrap().display());
-    let template_path = format!("{}/template/*.html", exe_dir.display()).trim().replace('\\', "/");
+    let template_path = format!("{}/template/*.html", exe_dir.display())
+        .trim()
+        .replace('\\', "/");
     info!("Usando plantillas en: {}", template_path);
-
-    
 
     let file_path = match handle_arguments() {
         Some(value) => value,
@@ -57,9 +52,19 @@ fn main() {
 
 fn prepare_log() {
     CombinedLogger::init(vec![
-        TermLogger::new(LevelFilter::Info, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
-        WriteLogger::new(LevelFilter::Info, Config::default(), File::create("output.log").unwrap()),
-    ]).unwrap();
+        TermLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            File::create("output.log").unwrap(),
+        ),
+    ])
+    .unwrap();
 }
 
 fn handle_arguments() -> Option<String> {
@@ -70,10 +75,10 @@ fn handle_arguments() -> Option<String> {
         match std::io::stdin().read_line(&mut file_path) {
             Ok(_) => {
                 info!("Archivo recibido desde stdin: {}", file_path.trim());
-            },
+            }
             Err(e) => {
                 error!("Error leyendo entrada estándar: {}", e);
-                ::std::process::exit(1);  
+                ::std::process::exit(1);
             }
         }
     } else {
@@ -87,60 +92,74 @@ fn handle_arguments() -> Option<String> {
         info!("Archivo recibido: {}", path.display());
     } else {
         error!("El archivo no existe: {}", path.display());
-        ::std::process::exit(1);  
+        ::std::process::exit(1);
     }
     Some(fixed_path.to_string())
 }
 
 fn process(tera: Tera, path: String) -> Tera {
-
-
     let price_tables = get_menu_components(&tera, path);
 
     let rendered_menu = render_menu(&tera, price_tables);
 
-    
     let html_output_path = save_rendered_html(&rendered_menu);
     save_rendered_pdf(&html_output_path);
     tera
 }
 
 fn save_rendered_pdf(tmp_html: &std::path::PathBuf) {
-    let output_dir = Path::new("dist");
-    if let Err(e) = std::fs::create_dir_all(output_dir) {
-        error!("Error creando dist: {}", e);
-        ::std::process::exit(1);        
-    }
+    let current_dir: &String = &env::current_dir().unwrap().display().to_string();
 
+    let output_dir = Path::new(current_dir).join("dist");
+    if let Err(e) = std::fs::create_dir_all(&output_dir) {
+        error!("Error creando dist: {}", e);
+        ::std::process::exit(1);
+    }
+    
     let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
     let pdf_path = output_dir.join(format!("menu-{}.pdf", timestamp));
 
-    // Preferir google-chrome, fallback a chromium/ chromium-browser
-    let chrome_candidates = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"];
-    let chrome_bin = chrome_candidates.iter()
-        .find(|b| which::which(b).is_ok())
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| {
-            error!("No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium.");
-            String::new()
-        });
+    let chrome_bin: String;
 
-    if chrome_bin.is_empty() {
-        ::std::process::exit(1);  
+    if let Ok(path) = env::var("CHROME_BIN") {
+        // Opción 1: Usa la ruta especificada por la variable de entorno
+        chrome_bin = path;
+    } else {
+        // Opción 2: Busca en el PATH como lo hacías antes
+        let chrome_candidates = [
+            "google-chrome-stable",
+            "google-chrome",
+            "chromium",
+            "chromium-browser",
+            "chrome.exe",
+            "chrome",
+        ];
+        chrome_bin = chrome_candidates
+            .iter()
+            .find(|b| which::which(b).is_ok())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| {
+                warn!("No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium. O establece la variable de entorno CHROME_BIN con la ruta al ejecutable.");
+                String::new()
+            });
+    }
+    let mut  chrome_resulted_bin = String::from("C:/Program Files/Google/Chrome/Application/chrome.exe");
+    if !chrome_bin.is_empty() {
+        chrome_resulted_bin = chrome_bin;
+        info!("Usando Chrome/Chromium en: {}", chrome_resulted_bin);
     }
 
-    let html_source_file = format!("./{}", tmp_html.display());
-    let status = Command::new(&chrome_bin)
+    let status = Command::new(&chrome_resulted_bin)
         .arg("--headless")
-        .arg("--no-sandbox")                 // necesario en muchos contenedores
+        .arg("--no-sandbox") // necesario en muchos contenedores
         .arg("--disable-gpu")
-        .arg("--disable-dev-shm-usage")      
-        .arg("--enable-local-file-access") 
+        .arg("--disable-dev-shm-usage")
+        .arg("--enable-local-file-access")
         .arg("--force-device-scale-factor=1")
         .arg("--disable-translate")
         .arg("--print-backgrounds")
         .arg(format!("--print-to-pdf={}", pdf_path.display()))
-        .arg(html_source_file)
+        .arg(tmp_html.display().to_string())
         .stderr(std::process::Stdio::inherit())
         .status();
 
@@ -163,10 +182,10 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
     let sheet_names = workbook.sheet_names().to_owned();
     let mut components = Vec::new();
 
-    let product_price_table = vec!["product","price"];
+    let product_price_table = vec!["product", "price"];
 
     let offert_price_card = vec!["price", "description"];
-    
+
     for name in sheet_names {
         let range = extract_data_from_sheet(&mut workbook, &name);
 
@@ -180,20 +199,20 @@ fn get_menu_components(tera: &Tera, path: String) -> Vec<String> {
         if headers[0].eq(product_price_table[0]) && headers[1].eq(product_price_table[1]) {
             info!("Building table for sheet: {}", name);
             let rendered_table = build_table(tera, &range, &name);
-            components.push(rendered_table);       
+            components.push(rendered_table);
         } else if headers[0].eq(offert_price_card[0]) && headers[1].eq(offert_price_card[1]) {
             info!("Building offert card for sheet: {}", name);
             let rendered_offert_card = build_offert_card(tera, &range, &name);
             components.push(rendered_offert_card);
         }
-
     }
     components
 }
 
-
-
-fn extract_data_from_sheet(workbook: &mut Xlsx<std::io::BufReader<fs::File>>, name: &String) -> Range<Data> {
+fn extract_data_from_sheet(
+    workbook: &mut Xlsx<std::io::BufReader<fs::File>>,
+    name: &String,
+) -> Range<Data> {
     let range = match workbook.worksheet_range(name) {
         Ok(r) => r,
         Err(e) => {
@@ -204,7 +223,6 @@ fn extract_data_from_sheet(workbook: &mut Xlsx<std::io::BufReader<fs::File>>, na
     range
 }
 fn build_offert_card(tera: &Tera, data: &Range<Data>, sheet_name: &str) -> String {
-
     let first_data_row = data
         .rows()
         .skip(1) // saltar la fila de cabecera
@@ -227,20 +245,17 @@ fn build_offert_card(tera: &Tera, data: &Range<Data>, sheet_name: &str) -> Strin
             ("".to_string(), "".to_string())
         }
     };
-    
+
     let mut context = Context::new();
-        context.insert("name", sheet_name);
-        context.insert("price", &price);
-        context.insert("description", &description);
+    context.insert("name", sheet_name);
+    context.insert("price", &price);
+    context.insert("description", &description);
 
     let rendered_offert_card = render_offert_card(tera, &context);
     rendered_offert_card
 }
 
-
-
 fn render_offert_card(tera: &Tera, context: &Context) -> String {
-
     // Renderizar la plantilla de tabla a string
     let rendered_offert_card = match tera.render("offert_card_template.html", &context) {
         Ok(s) => s,
@@ -251,9 +266,8 @@ fn render_offert_card(tera: &Tera, context: &Context) -> String {
     };
     rendered_offert_card
 }
-fn build_table(tera: &Tera, data: &Range<Data> , sheet_name: &str) -> String {
-
-    let mut iter = match RangeDeserializerBuilder::new().from_range(&data){
+fn build_table(tera: &Tera, data: &Range<Data>, sheet_name: &str) -> String {
+    let mut iter = match RangeDeserializerBuilder::new().from_range(&data) {
         Ok(it) => it,
         Err(e) => {
             error!("Error creating deserializer: {}", e);
@@ -281,7 +295,7 @@ fn build_table(tera: &Tera, data: &Range<Data> , sheet_name: &str) -> String {
     rendered_table
 }
 
-fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {    
+fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {
     // Contexto para la plantilla de la tabla
     let mut table_context = Context::new();
     table_context.insert("type", table_title);
@@ -290,14 +304,16 @@ fn get_table_from_sheet(table_title: &str, items: &Vec<Item>) -> Context {
 }
 
 fn save_rendered_html(rendered_menu: &String) -> std::path::PathBuf {
-    let output_dir = Path::new("dist");
+    let current_dir: &String = &env::current_dir().unwrap().display().to_string();
+
+    let output_dir = Path::new(current_dir).join("dist");
     if !output_dir.exists() {
-        if let Err(error) = fs::create_dir_all(output_dir) {
+        if let Err(error) = fs::create_dir_all(&output_dir) {
             error!("Error creando directorio de salida: {}", error);
             ::std::process::exit(1);
         }
     }
-    
+
     // Escribir resultado en un archivo (o imprime por stdout si prefieres)
     let output_path = output_dir.join("menu_output.html");
     if let Err(error) = fs::write(&output_path, rendered_menu) {
@@ -324,9 +340,7 @@ fn render_menu(tera: &Tera, price_tables: Vec<String>) -> String {
     rendered_menu
 }
 
-fn render_product_table(tera: &Tera, table_context: &Context) -> String {   
-
-
+fn render_product_table(tera: &Tera, table_context: &Context) -> String {
     // Renderizar la plantilla de tabla a string
     let rendered_table = match tera.render("price_table_template.html", &table_context) {
         Ok(s) => s,
