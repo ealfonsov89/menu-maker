@@ -2,11 +2,8 @@ name: Rust Windows Release
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  # También puedes añadir un flujo de trabajo manual para lanzar la compilación
-  workflow_dispatch:
+    tags:
+      - "*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -49,7 +46,23 @@ jobs:
       # 5. Publicar la carpeta 'target/release' como artefacto
       uses: actions/upload-artifact@v4
       with:
-        name: rust-app-windows-release
+        name: menu-maker-windows-release
         path: target/release/
         # Usamos la sintaxis de rutas de Windows aquí.
+    - name: Crear ZIP de los binarios
+      run: |
+        cd target/release
+        zip -r menu-maker-windows-release.zip .
+
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        asset_path: target/release/menu-maker-windows-release.zip
+        asset_name: menu-maker-windows-release.zip
+        asset_content_type: application/zip
+
         
