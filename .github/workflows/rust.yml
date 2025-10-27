@@ -50,9 +50,9 @@ jobs:
         path: target/release/
         # Usamos la sintaxis de rutas de Windows aquí.
     - name: Crear ZIP de los binarios
+      shell: pwsh
       run: |
-        cd target/release
-        zip -r menu-maker-windows-release.zip .
+        Compress-Archive -Path target/release/* -DestinationPath target/release/menu-maker-windows-release.zip -Force
 
     - name: Upload Release Asset
       id: upload-release-asset
