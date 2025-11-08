@@ -69,23 +69,28 @@ fn prepare_log() {
 
 fn handle_arguments() -> Option<String> {
     let args: Vec<String> = env::args().collect();
-    let mut file_path = String::new();
-    if args.len() < 2 {
-        println!("Agrega la ruta al xlsx:");
-        match std::io::stdin().read_line(&mut file_path) {
-            Ok(_) => {
-                info!("Archivo recibido desde stdin: {}", file_path.trim());
+    let fixed_path = match args.len() < 2 {
+        true => {
+            println!("Agrega la ruta al xlsx:");
+            let mut input = String::new();
+            match std::io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    info!("Archivo recibido desde stdin: {}", input.trim());
+                    input.to_string()
+                }
+                Err(e) => {
+                    error!("Error leyendo entrada estándar: {}", e);
+                    ::std::process::exit(1);
+                }
             }
-            Err(e) => {
-                error!("Error leyendo entrada estándar: {}", e);
-                ::std::process::exit(1);
-            }
+        },
+        false => {
+            args[1].to_string()
         }
-    } else {
-        file_path = args[1].to_string();
-    }
+    }.trim().replace('\\', "/");
 
-    let fixed_path = file_path.trim().replace('\\', "/");
+
+    info!("Ruta del archivo: {}", fixed_path);
 
     let path = Path::new(&fixed_path);
     if path.exists() {

@@ -1,0 +1,19 @@
+11:19:51 [INFO] Directorio actual: D:\projects\menu-maker\target\debug
+11:19:51 [INFO] Usando plantillas en: D:/projects/menu-maker/target/debug/template/*.html
+11:19:56 [INFO] Archivo recibido desde stdin: c:\Users\ealfo\Downloads\menu_test (2).xlsx
+11:19:56 [INFO] Ruta del archivo: c:/Users/ealfo/Downloads/menu_test (2).xlsx
+11:19:56 [INFO] Archivo recibido: c:/Users/ealfo/Downloads/menu_test (2).xlsx
+11:19:56 [INFO] Abriendo workbook: c:/Users/ealfo/Downloads/menu_test (2).xlsx
+11:19:56 [INFO] Building table for sheet: Refrescos y Aguas
+11:19:56 [INFO] Building table for sheet: Vinos Blancos y Tintos
+11:19:56 [INFO] Building offert card for sheet: Chupitos
+11:19:56 [INFO] Building table for sheet: Cerveza 33CL
+11:19:56 [INFO] Building table for sheet: Cerveza Barril
+11:19:56 [INFO] Building offert card for sheet: Mojito Cubano
+11:19:56 [INFO] Building offert card for sheet: Daiquiry
+11:19:56 [INFO] Building table for sheet: Cafe e infuciones
+11:19:56 [INFO] Building table for sheet: Postres y Helados
+11:19:56 [INFO] Building table for sheet: Copia de Postres y Helados
+11:19:56 [INFO] menu_output.html generado en dist/menu_output.html
+11:19:56 [WARN] No se encontró Chromium/Chrome en PATH. Instala google-chrome o chromium. O establece la variable de entorno CHROME_BIN con la ruta al ejecutable.
+11:19:57 [INFO] PDF generado: D:\projects\menu-maker\target\debug\dist\menu-20251108-1219.pdf
